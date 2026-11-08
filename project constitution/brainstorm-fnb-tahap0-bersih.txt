@@ -1,0 +1,364 @@
+BRAINSTORM WEB APP F&B MULTI-MODUL
+TAHAP 0 (VALIDASI) + KEPUTUSAN TERKUNCI
+
+Tanggal acuan : 20 Oktober 2026
+Status        : Tahap 0 selesai. Menunggu kata "lanjut" untuk masuk Tahap 1
+                (Scope MVP / V2 / V3).
+Catatan       : Angka ambang di dokumen ini adalah HIPOTESIS, bukan data.
+                Klaim yang belum terverifikasi ditandai jelas di Bagian 9.
+
+
+1. KONTEKS PRODUK
+
+Satu aplikasi, satu database, lima permukaan berbasis role, dihubungkan oleh
+entitas Order.
+
+  Permukaan   Rute                      Fungsi
+  ----------  ------------------------  ---------------------------------------
+  Customer    /m/{outlet}/{tableToken}  Scan QR meja, pilih menu/varian/catatan,
+                                        bayar, lacak status realtime
+  Kasir       /kasir                    Verifikasi pembayaran, order walk-in,
+                                        void/refund dengan otorisasi
+  Dapur       /dapur (opsional, flag)   Tiket pesanan + catatan, timer, status
+  Logistik    /logistik                 Stok, nilai persediaan, status stok,
+                                        ledger pergerakan
+  Admin       /admin                    Hub link, CRUD data, dashboard KPI,
+                                        laporan, audit log
+
+
+2. ASUMSI & KEPUTUSAN TERKUNCI
+
+  Parameter        Keputusan
+  ---------------  ------------------------------------------------------------
+  Tujuan           Produk nyata untuk UMKM F&B. Demo memakai sandbox pembayaran.
+  Tim & tenggat    Minimal 2 developer. Tanpa tenggat keras, tetapi tetap pakai
+                   milestone gate (tiap milestone harus bisa didemokan sendiri).
+  Waktu bayar      Dua mode: pay_first dan pay_after. DEFAULT: pay_first.
+  Pembayaran       QRIS lewat sandbox gateway untuk demo. Jalur manual QRIS
+                   statis tetap ada untuk pilot nyata. Lapisan PaymentProvider.
+  Konektivitas     ONLINE-ONLY. Fallback: kasir membuat order atas nama
+                   pelanggan (walk-in). Mode "catat belakangan" = kandidat V2.
+  Tipe order       Dine-in + takeaway.
+  Outlet           Satu outlet (skema sudah memuat outlet_id).
+  Stok             Bertahap: Mode Porsi (default) lalu Mode Resep (opsional).
+                   Lihat Bagian 5.
+  Stack            Next.js App Router, TypeScript, Tailwind, shadcn/ui,
+                   Supabase (Postgres + Realtime), Prisma, Zod, deploy Vercel.
+  Kualitas         Production-grade: RBAC + RLS, validasi server-side, uang
+                   sebagai integer, harga dihitung server, audit log,
+                   mobile-first, WCAG AA, test untuk alur kritis.
+  Pengguna nyata   4-7 pelaku usaha tersedia untuk wawancara (tes T2).
+  Tim AI           Claude + DeepSeek: konsultasi, analisa, review.
+                   Antigravity: coding.
+
+
+3. TAHAP 0: VALIDASI
+
+KESIMPULAN AWAL
+Masalahnya masuk akal, tetapi bukti yang ditemukan lemah. Lima permukaan yang
+terhubung dalam satu database BUKAN pembeda: kompetitor sudah menyediakannya,
+sebagian gratis. Produk layak hanya jika satu wedge spesifik lolos tes
+(Bagian 5 dan 6).
+
+3.1 MASALAH: HIPOTESIS DAN KEKUATAN BUKTI
+  H1. Pencatatan transaksi, stok, dan HPP di UMKM kuliner masih manual.
+      Bukti : Survei 25 UMKM ritel+kuliner (pedesaan): 72% masih manual;
+              hambatan utama biaya langganan dan koneksi tidak stabil.
+              Kelompok mitra APKLI Pangkalpinang: sekitar 65% tidak rutin
+              mencatat stok bahan baku.
+      Kekuatan: LEMAH (sampel kecil, bukan representatif nasional).
+  H2. Verifikasi pembayaran QRIS di kasir lambat dan rawan penipuan.
+      Bukti : Modus screenshot lama/diedit, stiker QRIS palsu; kasir tidak
+              punya cara memastikan pembayaran dari screenshot; QRIS palsu
+              menyasar merchant QRIS statis.
+      Kekuatan: SEDANG (banyak sumber, tetapi dari penyedia solusi/media,
+              tanpa angka kerugian).
+  H3. Order via QR meja mengurangi antrean dan salah catat.
+      Bukti : Hanya klaim pemasaran vendor dan karya ilmiah mahasiswa.
+      Kekuatan: TIDAK TERVERIFIKASI.
+
+3.2 SEGMEN PENGGUNA
+  S1  Warung / rumah makan mikro  -> PRIMER (hipotesis)
+      1 outlet, 2-6 orang, HP Android, QRIS statis, tanpa printer/KDS,
+      pemilik sering merangkap kasir.
+  S2  Kafe / resto kecil          -> Sekunder (kompetitor paling kuat di sini)
+  S3  Multi-outlet / franchise    -> Di luar scope
+  Alasan memilih S1: hambatan biaya langganan paling nyata (H1).
+  Konsekuensi: UI customer harus ringan; pelanggan tidak memasang aplikasi
+  dan datanya sering tidak stabil.
+  Peran: pemilik, kasir, juru masak, pelanggan.
+
+3.3 KOMPETITOR
+  Pemain          Yang terverifikasi                         Catatan
+  --------------  -----------------------------------------  ------------------
+  Majoo           QRIS dinamis di aplikasi kasir; KDS        Harga & tier fitur
+                  melacak status per item; self order        tidak diverifikasi
+                  bisa dipakai bersama kasir; pembatalan
+                  order butuh persetujuan manager
+  Qasir           Self order via scan QR menu; staf          Terkunci di tier
+                  konfirmasi dengan scan QR transaksi;       berbayar
+                  butuh paket Pro/Pro Plus
+  Kasir Pintar    Help center mendokumentasikan QR Order     Harga IDR 55.000/bln
+                  dan QR Meja                                dari blog pihak
+                                                             ketiga (belum
+                                                             diverifikasi)
+  Menuku          MENGKLAIM QR self-order + QRIS + sinkron   Paling mirip produk
+                  POS/dapur real-time, tanpa langganan       ini. Klaim pembuat;
+                  bulanan                                    skala tidak diketahui
+  Loyverse        POS, kitchen display, stok dasar           Tidak ada bukti QR
+                  (termasuk stok komponen) gratis;           self-order untuk
+                  Advanced Inventory $25/bln per toko        pelanggan: jangan
+                                                             diklaim
+  Livin' Merchant QR Meja: pesanan masuk otomatis, merchant  Pesaing dari sisi
+  (Mandiri)       tinggal konfirmasi                         akuisisi QRIS
+  Pawoon, Olsera, Hanya muncul di daftar rekomendasi         Fitur self-order &
+  Moka, iSeller,                                             stok resep tidak
+  ESB                                                        ditelusuri
+
+  Implikasi: tanpa wedge, produk kalah di distribusi, dukungan, dan merek.
+
+3.4 ASUMSI DEFAULT YANG DIBANTAH (DAN RESOLUSINYA)
+  a) "Bayar dulu untuk semua"
+     Masalah : tidak cocok untuk rumah makan yang umumnya bayar setelah makan
+               (pengamatan umum, belum diverifikasi).
+     Resolusi: DUA MODE (pay_first default, pay_after tersedia). Lihat 6.1.
+  b) "QRIS statis + konfirmasi manual kasir"
+     Masalah : celah penipuan (H2); pelanggan mengetik nominal sendiri; kasir
+               jadi bottleneck saat ramai.
+     Resolusi: kasir memverifikasi dari notifikasi/mutasi merchant, BUKAN
+               screenshot. Target: QRIS dinamis via gateway di balik
+               PaymentProvider (demo: sandbox).
+  c) Biaya QRIS (MDR), berlaku sejak 1 Okt 2026:
+       - 0% untuk semua kategori merchant sampai Rp100 ribu per transaksi
+       - Usaha mikro: tetap 0% sampai Rp500 ribu; di atasnya 0,3%
+       - Usaha kecil/menengah/besar: di atas Rp100 ribu = 0,7%
+       - MDR ditanggung merchant dan tidak boleh dibebankan ke konsumen
+     ATURAN BISNIS: dilarang menambah "biaya QRIS" ke total customer.
+     (Satu blog menyebut batas "per hari"; tidak dipakai karena bertentangan
+     dengan pemberitahuan BCA dan Kontan yang menyebut per transaksi.)
+  d) "Stok per bahan baku + resep"
+     Masalah : beban input terbesar bagi UMKM.
+     Resolusi: bertahap, Mode Porsi dulu (Bagian 5).
+  e) Offline
+     Resolusi: ONLINE-ONLY (Bagian 6.7).
+
+
+4. IMPLEMENTASI LOKAL UNTUK UMKM INDONESIA
+
+Prinsip: fitur yang dipilih harus sesuai cara kerja warung/rumah makan, bukan
+meniru POS restoran besar.
+
+  - QRIS sebagai metode utama (standar nasional), tanpa surcharge ke customer.
+  - Dua alur bayar sesuai praktik lapangan: bayar di awal (takeaway/kafe) dan
+    bayar di akhir (rumah makan).
+  - Stok dihitung dalam PORSI per hari (cara umum warung memasak per batch;
+    hipotesis, diuji di T2), bukan gram bahan sejak hari pertama.
+  - Semua uang integer Rupiah (tanpa desimal). Pajak/service charge dibuat
+    konfigurabel; aturan pajak daerah belum diverifikasi.
+  - Bahasa antarmuka Bahasa Indonesia; UI ringan untuk HP Android lama dan
+    data seluler tidak stabil.
+  - Opsional (kandidat V2): kirim struk/status lewat tautan WhatsApp
+    (deep link, tanpa API berbayar). Belum diverifikasi kelayakannya.
+
+CATATAN MODEL BISNIS (HIPOTESIS, uji di T2)
+  Hambatan biaya langganan nyata (H1) dan pasar sudah diisi aplikasi gratis.
+  Arah yang konsisten dengan pasar: inti gratis (1 outlet, Mode Porsi),
+  fitur lanjutan berbayar (Mode Resep/HPP, QRIS dinamis, multi-outlet).
+  Pola "fitur lanjutan di tier berbayar" terlihat pada Qasir (self order di
+  Pro) dan Loyverse (inventory lanjutan berbayar). Kesediaan membayar BELUM
+  diuji.
+
+
+5. WEDGE (REVISI)
+
+WEDGE TERPILIH
+  "Menu otomatis HABIS berdasarkan stok porsi harian, yang bisa naik bertahap
+   ke Mode Resep (bahan baku, HPP, margin per menu) saat pemilik siap."
+
+MEKANISME
+  Mode Porsi (default, tanpa resep):
+    1. Pagi hari pemilik/dapur mengisi stok porsi per menu untuk hari itu.
+    2. Setiap order terkonfirmasi mengurangi porsi.
+    3. Saat porsi 0, menu otomatis tidak bisa dipesan di halaman customer.
+    4. Akhir hari: rekap terjual vs sisa vs terbuang.
+  Mode Resep (opsional, per menu):
+    - Menu dihubungkan ke bahan baku + resep; order memotong bahan.
+    - Muncul HPP dan margin per menu, status stok (aman/menipis/habis/lama).
+
+KENAPA REVISI DARI VERSI AWAL
+  Versi awal mensyaratkan resep untuk semua menu. Itu beban input terbesar dan
+  menabrak hambatan adopsi UMKM (H1). Mode Porsi menurunkan biaya awal menjadi
+  satu angka per menu per hari, dan tetap hanya mungkin karena satu entitas
+  Order menghubungkan customer, dapur, dan logistik.
+
+RISIKO
+  - Kompetitor mungkin sudah punya auto-habis (belum diverifikasi; T1).
+  - Hipotesis "warung menghitung dalam porsi" belum diuji (T2).
+  - Pemilik mungkin enggan mengisi stok tiap pagi (T3).
+
+
+6. KEPUTUSAN DESAIN AWAL (DITERUSKAN KE TAHAP 2, 4, 5, 6)
+
+Pilihan di bawah dipilih demi profesionalisme dan maintainability: satu konsep
+per tanggung jawab, satu sumber kebenaran, satu titik logika yang mudah dites.
+
+6.1 TAGIHAN (BILL) SEBAGAI UNIT PEMBAYARAN
+  - Entitas bill (tagihan / sesi meja): outlet_id, table_id (null untuk
+    takeaway), payment_timing (SNAPSHOT saat dibuat), status
+    (open, awaiting_payment, paid, void), total dihitung server.
+  - Order selalu milik satu bill.
+  - pay_first : satu bill per order (order tambahan = bill baru).
+  - pay_after : satu bill per sesi meja; order tambahan masuk bill yang sama;
+                kasir menutup bill.
+  - payment_timing di-snapshot, sehingga mengganti default outlet tidak
+    mengubah bill yang sedang berjalan.
+  - GERBANG DAPUR (satu titik logika):
+      order dilepas ke dapur jika
+        bill.payment_timing = pay_after  ATAU  bill.status = paid
+  - Payment dibuat per bill dengan idempotency key per percobaan.
+  - PaymentProvider punya dua implementasi: ManualQris dan SandboxGateway.
+
+6.2 SATU LEDGER STOK
+  - Satu abstraksi stock_item bertipe portion atau ingredient.
+  - stock_movement bersifat append-only; saldo adalah turunan.
+  - Mode Porsi dan Mode Resep memakai ledger yang sama, tidak ada dua sumber
+    kebenaran.
+
+6.3 UANG DAN HARGA
+  - Uang integer Rupiah. Harga, diskon, total selalu dihitung server.
+
+6.4 ATURAN BISNIS PEMBAYARAN
+  - Dilarang surcharge QRIS ke customer (lihat 3.4c).
+  - Void/refund butuh otorisasi dan tercatat di audit log.
+
+6.5 RESERVASI STOK (DETAIL DI TAHAP 5)
+  - Stok porsi direservasi saat order dibuat, dengan TTL pelepasan jika tidak
+    dibayar (pay_first), agar tidak terjadi oversell saat pembayaran tertunda.
+
+6.6 MITIGASI RISIKO pay_after (DETAIL DI TAHAP 6)
+  - Order bisa masuk dapur tanpa jaminan bayar. Mitigasi: rotasi tableToken,
+    rate limit endpoint publik, batas order belum bayar per sesi, kasir bisa
+    memblokir sesi.
+
+6.7 ONLINE-ONLY
+  - Offline multi-device butuh sinkronisasi antarperangkat; terlalu mahal.
+  - Fallback gratis: kasir membuat order atas nama pelanggan (walk-in).
+  - Risiko diterima: internet outlet putus = sistem berhenti. Mode "catat
+    belakangan" (input ulang dengan penanda audit) = kandidat V2.
+
+6.8 SANDBOX
+  - Sandbox membuktikan integrasi dan alur, bukan uang nyata. Provider dan
+    simulator QRIS belum diverifikasi: diputuskan di Tahap 5.
+
+
+7. TIM & PEMBAGIAN KERJA
+
+Tim: minimal 2 developer.
+  - Claude + DeepSeek : konsultasi, analisa, review (second opinion).
+  - Antigravity       : coding.
+  - Aturan: jika dua model berbeda pendapat, keputusan dicatat sebagai ADR dan
+    DIPUTUSKAN MANUSIA.
+
+Rencana paralel (disempurnakan di Tahap 7):
+  Stream A : customer + kasir + bill/payment
+  Stream B : dapur + logistik/stok + admin
+  Syarat   : skema Prisma dan schema Zod bersama dibekukan lebih dulu
+             (contract-first), baru dikerjakan paralel.
+
+Cocok untuk AI agent : CRUD, UI komponen, validasi Zod, test unit/integrasi
+                       berdasarkan acceptance criteria.
+Wajib review manusia : RLS dan RBAC, idempotensi + webhook pembayaran,
+                       migrasi database, void/refund, konkurensi stok,
+                       rate limit endpoint publik.
+
+
+8. RENCANA VALIDASI (BISA PARALEL DENGAN TAHAP 1)
+
+  T1. TEARDOWN KOMPETITOR (1-2 hari, manusia)
+      Trial gratis Majoo, Kasir Pintar, Qasir, Loyverse, Menuku.
+      Checklist: auto-habis dari stok (porsi dan bahan), HPP/margin per menu,
+      varian + catatan ke dapur, QRIS dinamis, order via QR tanpa install,
+      harga tier terendah yang membuka semuanya.
+      WEDGE GUGUR jika >= 2 kompetitor yang bisa dicoba gratis sudah punya
+      auto-habis berbasis stok.
+
+  T2. WAWANCARA 4-7 PELAKU USAHA S1 (3-5 hari)
+      Tanyakan kejadian nyata terakhir: menu habis setelah dipesan, cara
+      menghitung stok (porsi atau bahan), cara mengecek pembayaran QRIS,
+      bayar di awal atau di akhir.
+      Ambang (hipotesis, tetapkan SEBELUM wawancara):
+        - >= 3 responden mengalami menu habis-setelah-dipesan >= 1x/minggu
+        - >= 3 responden menghitung ketersediaan dalam porsi
+        - >= 3 responden mau mengisi stok porsi harian
+        - Opsional, untuk Mode Resep: >= 2 responden mau mengisi resep untuk
+          5 menu terlaris
+        - Tanyakan juga kesediaan membayar (uji catatan model bisnis)
+      Jika gagal: wedge diganti.
+
+  T3. PROTOTIPE KLIK (2-3 hari)
+      3 pemilik mengisi stok porsi 10 menu. Ambang hipotesis: selesai <= 3
+      menit tanpa bantuan untuk >= 2 dari 3.
+      Jika gagal: sederhanakan input (mis. salin stok kemarin) sebelum lanjut.
+
+  Pembagian: AI membantu menyusun skrip, template checklist, dan merangkum
+  transkrip. Manusia WAJIB melakukan trial akun, wawancara, memverifikasi
+  harga di halaman resmi, dan memutuskan wedge lolos/gugur.
+
+
+9. KLAIM BELUM TERVERIFIKASI
+
+  - Semua harga kompetitor, kecuali Loyverse (halaman resmi).
+  - Dampak QR order terhadap antrean atau omzet.
+  - Biaya gateway di luar MDR dan cara penentuan kategori merchant
+    mikro/kecil oleh akuisitor.
+  - Ketersediaan fitur auto-habis dan margin per menu pada kompetitor selain
+    yang tercantum.
+  - Praktik "warung menghitung dalam porsi" dan "rumah makan bayar setelah
+    makan" (pengamatan umum, diuji di T2).
+  - Provider gateway dengan simulator QRIS sandbox.
+  - Aturan pajak daerah / service charge untuk usaha makanan.
+  - Kelayakan tautan WhatsApp untuk struk.
+
+
+10. LANGKAH BERIKUTNYA
+
+  - Jalankan T1 dan T2 secara paralel (biaya kecil, mencegah salah wedge).
+  - Tulis "lanjut" untuk masuk Tahap 1: Scope MVP vs V2 vs V3, dengan Mode
+    Resep ditandai provisional supaya bisa diturunkan ke V2 tanpa merusak
+    bagian lain.
+
+Sisa tahap: 1 Scope, 2 Alur & state machine order, 3 Spesifikasi modul,
+4 Data model/ERD + RLS, 5 Arsitektur & ADR, 6 Keamanan, 7 Backlog siap-agent.
+
+
+11. SUMBER (diakses 20 Okt 2026)
+
+Kompetitor
+  https://majoo.id/aplikasi-kasir-online
+  https://blog.qasir.id/en/tips/lebih-praktis-fitur-self-order-di-qasir-bikin-pelanggan-pesan-menu-tanpa-antre?region=id
+  https://help.kasirpintar.co.id/knowledge-base/category/aplikasi-kasir-pintar-pos/transaksi-dan-pesanan-aplikasi-kasir-pintar-pos/pesanan-transaksi-aplikasi-kasir-pintar-pos
+  https://peerlist.io/aziez/project/menuku
+  https://loyverse.com/en-us/pricing
+  https://www.bankmandiri.co.id/web/guest/livin-merchant/cara-terima-pesanan
+  https://hitpayapp.com/blog/sistem-aplikasi-pos-gratis-di-indonesia
+  https://www.gadjian.com/blog/2025/09/10/aplikasi-pos-terbaik/
+  https://dealls.com/pengembangan-karir/aplikasi-kasir-terbaik
+  https://esb.id/en/inspirasi/aplikasi-kasir-pos-terbaik
+
+Biaya QRIS (MDR)
+  https://www.bca.co.id/en/informasi/news-and-features/2026/09/01/18/50/informasi-penyesuaian-merchant-discount-rate-mdr-transaksi-qris
+  https://keuangan.kontan.co.id/news/kebijakan-mdr-qris-0-berlaku-mulai-1-oktober-2026-btn-sesuaikan-tarif-merchant
+  https://keuangan.kontan.co.id/news/mdr-qris-untuk-transaksi-hingga-rp-500000-bebas-biaya-ini-kata-goto-financial
+  https://www.metrotvnews.com/read/bmRCYzdm-biaya-transaksi-qris-gratis-simak-aturannya
+
+Risiko penipuan QRIS
+  https://www.telkomsel.com/enterprise/insight/blog/cara-mencegah-penipuan-qris-yang-merugikan-merchant
+  https://www.telkomsel.com/enterprise/insight/blog/kenali-modus-penipuan-qris-ini-cara-menghindarinya
+  https://www.kompas.tv/ekonomi/518880/bukan-cuma-konsumen-penipuan-qris-juga-menyasar-penjual-ini-tips-menghindarinya
+  https://www.liputan6.com/cek-fakta/read/6000890/waspada-modus-penipuan-qris-begini-cara-transaksi-yang-aman
+
+Bukti masalah UMKM (sampel kecil)
+  https://ejournal.urindo.ac.id/index.php/administrasimanajemen/article/download/7016/2798
+  https://jerkin.org/index.php/jerkin/article/download/7756/5613/43467
+
+AKHIR DOKUMEN TAHAP 0
