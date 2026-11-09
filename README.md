@@ -15,7 +15,7 @@ Aplikasi kasir (Point of Sale) modern berbasis web, dirancang untuk UMKM atau wa
 - **State Management:** [Zustand](https://github.com/pmndrs/zustand)
 - **Icons:** [Lucide React](https://lucide.dev/)
 
-## 🚀 Cara Menjalankan Project (Untuk Developer)
+## 🚀 jalankan Project
 
 1. Clone repository ini:
    ```bash
