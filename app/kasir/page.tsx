@@ -1,6 +1,6 @@
-import POSHeader from '../../../components/pos/POSHeader';
-import ProductGrid from '../../../components/pos/ProductGrid';
-import CartBottomBar from '../../../components/pos/CartBottomBar';
+import POSHeader from '@/components/pos/POSHeader';
+import ProductGrid from '@/components/pos/ProductGrid';
+import CartBottomBar from '@/components/pos/CartBottomBar';
 
 export default function POSPage() {
     return (
